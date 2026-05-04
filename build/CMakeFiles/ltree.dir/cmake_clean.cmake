@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/ltree.dir/src/ltree.cpp.o"
   "CMakeFiles/ltree.dir/src/ltree.cpp.o.d"
-  "libltree.a"
-  "libltree.pdb"
+  "lib/libltree.a"
+  "lib/libltree.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

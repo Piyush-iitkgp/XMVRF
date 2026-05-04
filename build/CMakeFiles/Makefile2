@@ -198,9 +198,9 @@ CMakeFiles/xmss_tree.dir/clean:
 
 # All Build rule for target.
 CMakeFiles/multilayer_xmss.dir/all: CMakeFiles/crypto_utils.dir/all
+CMakeFiles/multilayer_xmss.dir/all: CMakeFiles/xmss_tree.dir/all
 CMakeFiles/multilayer_xmss.dir/all: CMakeFiles/wots_plus.dir/all
 CMakeFiles/multilayer_xmss.dir/all: CMakeFiles/ltree.dir/all
-CMakeFiles/multilayer_xmss.dir/all: CMakeFiles/xmss_tree.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/multilayer_xmss.dir/build.make CMakeFiles/multilayer_xmss.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/multilayer_xmss.dir/build.make CMakeFiles/multilayer_xmss.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/agarwalpiyush/BTP-2/XMVRF/build/CMakeFiles --progress-num=5,6 "Built target multilayer_xmss"
@@ -227,10 +227,10 @@ CMakeFiles/multilayer_xmss.dir/clean:
 
 # All Build rule for target.
 CMakeFiles/xm_vrf.dir/all: CMakeFiles/crypto_utils.dir/all
-CMakeFiles/xm_vrf.dir/all: CMakeFiles/wots_plus.dir/all
-CMakeFiles/xm_vrf.dir/all: CMakeFiles/ltree.dir/all
 CMakeFiles/xm_vrf.dir/all: CMakeFiles/xmss_tree.dir/all
 CMakeFiles/xm_vrf.dir/all: CMakeFiles/multilayer_xmss.dir/all
+CMakeFiles/xm_vrf.dir/all: CMakeFiles/wots_plus.dir/all
+CMakeFiles/xm_vrf.dir/all: CMakeFiles/ltree.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xm_vrf.dir/build.make CMakeFiles/xm_vrf.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xm_vrf.dir/build.make CMakeFiles/xm_vrf.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/agarwalpiyush/BTP-2/XMVRF/build/CMakeFiles --progress-num=9,10 "Built target xm_vrf"
@@ -256,12 +256,12 @@ CMakeFiles/xm_vrf.dir/clean:
 # Target rules for target CMakeFiles/xmvrf.dir
 
 # All Build rule for target.
+CMakeFiles/xmvrf.dir/all: CMakeFiles/xm_vrf.dir/all
 CMakeFiles/xmvrf.dir/all: CMakeFiles/crypto_utils.dir/all
-CMakeFiles/xmvrf.dir/all: CMakeFiles/wots_plus.dir/all
-CMakeFiles/xmvrf.dir/all: CMakeFiles/ltree.dir/all
 CMakeFiles/xmvrf.dir/all: CMakeFiles/xmss_tree.dir/all
 CMakeFiles/xmvrf.dir/all: CMakeFiles/multilayer_xmss.dir/all
-CMakeFiles/xmvrf.dir/all: CMakeFiles/xm_vrf.dir/all
+CMakeFiles/xmvrf.dir/all: CMakeFiles/wots_plus.dir/all
+CMakeFiles/xmvrf.dir/all: CMakeFiles/ltree.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xmvrf.dir/build.make CMakeFiles/xmvrf.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/xmvrf.dir/build.make CMakeFiles/xmvrf.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/agarwalpiyush/BTP-2/XMVRF/build/CMakeFiles --progress-num=13,14 "Built target xmvrf"

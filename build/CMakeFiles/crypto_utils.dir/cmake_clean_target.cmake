@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "libcrypto_utils.a"
+  "lib/libcrypto_utils.a"
 )

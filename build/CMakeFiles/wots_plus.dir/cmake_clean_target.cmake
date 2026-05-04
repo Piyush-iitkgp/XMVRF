@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "libwots_plus.a"
+  "lib/libwots_plus.a"
 )

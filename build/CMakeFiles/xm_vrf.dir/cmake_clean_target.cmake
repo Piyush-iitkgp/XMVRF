@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "libxm_vrf.a"
+  "lib/libxm_vrf.a"
 )

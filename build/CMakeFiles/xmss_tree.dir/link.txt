@@ -1,2 +1,2 @@
-/usr/bin/ar qc libxmss_tree.a CMakeFiles/xmss_tree.dir/src/xmss_tree.cpp.o
-/usr/bin/ranlib libxmss_tree.a
+/usr/bin/ar qc lib/libxmss_tree.a CMakeFiles/xmss_tree.dir/src/xmss_tree.cpp.o
+/usr/bin/ranlib lib/libxmss_tree.a

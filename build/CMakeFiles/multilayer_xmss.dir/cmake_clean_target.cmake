@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "libmultilayer_xmss.a"
+  "lib/libmultilayer_xmss.a"
 )

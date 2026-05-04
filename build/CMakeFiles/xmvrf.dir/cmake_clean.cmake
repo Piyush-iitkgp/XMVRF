@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/xmvrf.dir/src/main.cpp.o"
   "CMakeFiles/xmvrf.dir/src/main.cpp.o.d"
-  "xmvrf"
-  "xmvrf.pdb"
+  "bin/xmvrf"
+  "bin/xmvrf.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

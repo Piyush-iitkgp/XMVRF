@@ -1,2 +1,2 @@
-/usr/bin/ar qc libxm_vrf.a CMakeFiles/xm_vrf.dir/src/xm_vrf.cpp.o
-/usr/bin/ranlib libxm_vrf.a
+/usr/bin/ar qc lib/libxm_vrf.a CMakeFiles/xm_vrf.dir/src/xm_vrf.cpp.o
+/usr/bin/ranlib lib/libxm_vrf.a

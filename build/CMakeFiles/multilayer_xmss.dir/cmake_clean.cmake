@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/multilayer_xmss.dir/src/multilayer_xmss.cpp.o"
   "CMakeFiles/multilayer_xmss.dir/src/multilayer_xmss.cpp.o.d"
-  "libmultilayer_xmss.a"
-  "libmultilayer_xmss.pdb"
+  "lib/libmultilayer_xmss.a"
+  "lib/libmultilayer_xmss.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

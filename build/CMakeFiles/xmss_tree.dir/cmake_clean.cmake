@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/xmss_tree.dir/src/xmss_tree.cpp.o"
   "CMakeFiles/xmss_tree.dir/src/xmss_tree.cpp.o.d"
-  "libxmss_tree.a"
-  "libxmss_tree.pdb"
+  "lib/libxmss_tree.a"
+  "lib/libxmss_tree.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

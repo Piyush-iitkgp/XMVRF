@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "libxmss_tree.a"
+  "lib/libxmss_tree.a"
 )

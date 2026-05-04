@@ -1,3 +1,3 @@
 file(REMOVE_RECURSE
-  "libltree.a"
+  "lib/libltree.a"
 )
