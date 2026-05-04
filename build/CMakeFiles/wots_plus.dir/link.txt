@@ -1,2 +1,0 @@
-/usr/bin/ar qc lib/libwots_plus.a CMakeFiles/wots_plus.dir/src/wots_plus.cpp.o
-/usr/bin/ranlib lib/libwots_plus.a

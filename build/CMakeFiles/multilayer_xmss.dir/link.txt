@@ -1,2 +1,0 @@
-/usr/bin/ar qc lib/libmultilayer_xmss.a CMakeFiles/multilayer_xmss.dir/src/multilayer_xmss.cpp.o
-/usr/bin/ranlib lib/libmultilayer_xmss.a

@@ -5,8 +5,28 @@
 #include <sstream>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
 
 using namespace std;
+
+// Output directory path
+string OUTPUT_DIR = "output_files";
+
+// Helper function to get output file path
+string getOutputPath(const string& filename) {
+    return OUTPUT_DIR + "/" + filename;
+}
+
+// Helper function to ensure output directory exists
+void ensureOutputDirectory() {
+    try {
+        if (!filesystem::exists(OUTPUT_DIR)) {
+            filesystem::create_directory(OUTPUT_DIR);
+        }
+    } catch (const exception& e) {
+        cerr << "Warning: Could not create output directory: " << e.what() << endl;
+    }
+}
 
 // Helper function to print hex
 void printHex(const vector<uint8_t>& data, int maxBytes = -1) {
@@ -39,7 +59,7 @@ string bytesToHex(const vector<uint8_t>& data) {
 
 // Helper function to save authentication path to file
 void saveAuthPathToFile(const vector<vector<uint8_t>>& auth_path, const string& filename) {
-    ofstream file(filename);
+    ofstream file(getOutputPath(filename));
     for (size_t i = 0; i < auth_path.size(); i++) {
         for (size_t j = 0; j < auth_path[i].size(); j++) {
             file << hex << setw(2) << setfill('0') << (int)auth_path[i][j];
@@ -53,7 +73,7 @@ void saveAuthPathToFile(const vector<vector<uint8_t>>& auth_path, const string& 
 
 // Helper function to save single value to file
 void saveValueToFile(const vector<uint8_t>& value, const string& filename) {
-    ofstream file(filename);
+    ofstream file(getOutputPath(filename));
     for (size_t i = 0; i < value.size(); i++) {
         file << hex << setw(2) << setfill('0') << (int)value[i];
     }
@@ -105,13 +125,13 @@ void wotsPlusMenu(int h) {
         
         // Save signature to file with all components space-separated
         string sigFilename = "wots_signature.txt";
-        WOTS_SaveSignatureToFile(sig, sigFilename);
-        cout << "\n[WOTS+ Signature saved to: " << sigFilename << "]" << endl;
+        WOTS_SaveSignatureToFile(sig, getOutputPath(sigFilename));
+        cout << "\n[WOTS+ Signature saved to: " << OUTPUT_DIR << "/" << sigFilename << "]" << endl;
         
         // Also save public key
         string pkFilename = "wots_public_key.txt";
-        WOTS_SavePublicKeyToFile(pk, pkFilename);
-        cout << "[WOTS+ Public Key saved to: " << pkFilename << "]" << endl;
+        WOTS_SavePublicKeyToFile(pk, getOutputPath(pkFilename));
+        cout << "[WOTS+ Public Key saved to: " << OUTPUT_DIR << "/" << pkFilename << "]" << endl;
         
         // Verify the signature
         bool valid = WOTS_Verify(pk, message, sig);
@@ -178,8 +198,8 @@ void ltreeMenu() {
             
             // Save L-Tree root to file
             string root_filename = "ltree_root.txt";
-            LTree_SaveRootToFile(ltree_root, root_filename);
-            cout << "\n[L-Tree Root saved to: " << root_filename << "]" << endl;
+            LTree_SaveRootToFile(ltree_root, getOutputPath(root_filename));
+            cout << "\n[L-Tree Root saved to: " << OUTPUT_DIR << "/" << root_filename << "]" << endl;
             
         } catch (const exception& e) {
             cout << "Error: " << e.what() << endl;
@@ -273,15 +293,15 @@ void xmssTreeMenu(int h) {
             
             // Save root to file
             saveValueToFile(output.root, "xmss_root.txt");
-            cout << "[Root saved to: xmss_root.txt]" << endl;
+            cout << "[Root saved to: " << OUTPUT_DIR << "/xmss_root.txt]" << endl;
             
             // Save authentication path to file
             saveAuthPathToFile(output.auth_path, "xmss_auth_path.txt");
-            cout << "[Authentication Path (" << output.auth_path.size() << " nodes) saved to: xmss_auth_path.txt]" << endl;
+            cout << "[Authentication Path (" << output.auth_path.size() << " nodes) saved to: " << OUTPUT_DIR << "/xmss_auth_path.txt]" << endl;
             
             // Save WOTS+ signature to file
-            WOTS_SaveSignatureToFile(output.wots_sig, "xmss_wots_signature.txt");
-            cout << "[WOTS+ Signature saved to: xmss_wots_signature.txt]" << endl;
+            WOTS_SaveSignatureToFile(output.wots_sig, getOutputPath("xmss_wots_signature.txt"));
+            cout << "[WOTS+ Signature saved to: " << OUTPUT_DIR << "/xmss_wots_signature.txt]" << endl;
             
         } catch (const exception& e) {
             cout << "Error: " << e.what() << endl;
@@ -420,7 +440,7 @@ void multiLayerXMSSMenu(int h1, int h2) {
         cout << "[Key pair generated]" << endl;
         cout << "Verification Key Root: ";
         printHex(pk.root);
-        cout << "\n[Root saved to: mlxmss_root.txt]" << endl;
+        cout << "\n[Root saved to: " << OUTPUT_DIR << "/mlxmss_root.txt]" << endl;
         saveValueToFile(pk.root, "mlxmss_root.txt");
         
         cout << "\nEnter index for Layer 0 (0 to " << ((1UL << h1) - 1) << "): ";
@@ -448,8 +468,8 @@ void multiLayerXMSSMenu(int h1, int h2) {
             // Save WOTS+ signatures for both layers
             for (size_t layer = 0; layer < 2; layer++) {
                 string filename = "mlxmss_wots_sig_layer" + to_string(layer) + ".txt";
-                WOTS_SaveSignatureToFile(proof.wots_sigs[layer], filename);
-                cout << "\n[Layer " << layer << " WOTS+ Signature saved to: " << filename << "]" << endl;
+                WOTS_SaveSignatureToFile(proof.wots_sigs[layer], getOutputPath(filename));
+                cout << "\n[Layer " << layer << " WOTS+ Signature saved to: " << OUTPUT_DIR << "/" << filename << "]" << endl;
             }
             
             // Save authentication paths for both layers
@@ -457,7 +477,7 @@ void multiLayerXMSSMenu(int h1, int h2) {
                 string filename = "mlxmss_auth_path_layer" + to_string(layer) + ".txt";
                 saveAuthPathToFile(proof.auth_paths[layer], filename);
                 cout << "[Layer " << layer << " Authentication Path (" << proof.auth_paths[layer].size() 
-                     << " nodes) saved to: " << filename << "]" << endl;
+                     << " nodes) saved to: " << OUTPUT_DIR << "/" << filename << "]" << endl;
             }
             
         } catch (const exception& e) {
@@ -930,9 +950,13 @@ void xmvrfMenu() {
 }
 
 int main() {
+    // Initialize output directory
+    ensureOutputDirectory();
+    
     cout << "========================================" << endl;
     cout << "   XM-VRF Interactive Testing System" << endl;
     cout << "   (2-Layer Configuration)" << endl;
+    cout << "   Output files saved to: " << OUTPUT_DIR << "/" << endl;
     cout << "========================================" << endl;
     
     int h1 = 4, h2 = 4; // Heights for 2 layers

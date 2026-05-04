@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/xmvrf.dir/src/main.cpp.o -o bin/xmvrf  lib/libxm_vrf.a lib/libmultilayer_xmss.a lib/libxmss_tree.a lib/libltree.a lib/libwots_plus.a lib/libcrypto_utils.a /usr/lib/x86_64-linux-gnu/libssl.so /usr/lib/x86_64-linux-gnu/libcrypto.so 
