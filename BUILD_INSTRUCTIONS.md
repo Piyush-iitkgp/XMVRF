@@ -27,8 +27,20 @@ sudo apt-get install -y cmake g++ libssl-dev
 ```
 
 #### macOS (Homebrew)
+First, install Homebrew if you don't have it:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Then install dependencies:
 ```bash
 brew install cmake openssl
+```
+
+If Homebrew is installed in non-standard location (Apple Silicon), you may need:
+```bash
+brew install cmake openssl
+cmake .. -DOPENSSL_DIR=$(brew --prefix openssl)
 ```
 
 #### Windows (with MSVC)
@@ -78,6 +90,38 @@ This project is designed to be portable across different devices:
 4. **Clean Build**: You can safely delete `build/` and `output_files/` directories and rebuild
 
 ## Troubleshooting
+
+### macOS - CMake Not Found
+If you get `zsh: command not found: cmake`:
+```bash
+brew install cmake
+```
+
+### macOS - OpenSSL Not Found
+If CMake can't find OpenSSL:
+```bash
+# Check if OpenSSL is installed
+brew list openssl
+
+# If not installed, install it
+brew install openssl
+
+# Configure CMake with OpenSSL path
+cd build
+cmake .. -DOPENSSL_DIR=$(brew --prefix openssl)
+make -j4
+```
+
+### macOS - Homebrew Not Installed
+Install Homebrew first:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Then install dependencies:
+```bash
+brew install cmake openssl
+```
 
 ### CMake Not Found
 - Ensure CMake is installed: `cmake --version`

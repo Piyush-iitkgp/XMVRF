@@ -86,4 +86,9 @@ bool MultiXMSS_VerifyComplete(const MultiLayerXMSSPublicKey& pk,
                                const std::vector<uint8_t>& message,
                                const std::vector<size_t>& layer_indices);
 
+// Verify multi-layer XMSS proof structure (basic validation without root reconstruction)
+bool MultiXMSS_Verify(const MultiLayerXMSSPublicKey& pk,
+                      const std::vector<uint8_t>& message,
+                      const MultiLayerXMSSProof& proof);
+
 #endif // MULTILAYER_XMSS_H

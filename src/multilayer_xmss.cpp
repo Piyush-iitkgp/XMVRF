@@ -10,6 +10,14 @@
 #include <cstring>
 #include <iostream>
 
+// Forward declarations
+static std::vector<uint8_t> reconstruct_xmss_root(
+    const std::vector<uint8_t>& leaf,
+    const std::vector<std::vector<uint8_t>>& auth_path,
+    const std::vector<std::vector<uint8_t>>& xmss_bitmasks,
+    size_t leaf_index,
+    size_t tree_height);
+
 // Initialize XMSS state
 XMSSState::XMSSState(size_t height) {
     Reset(height);
@@ -46,7 +54,7 @@ void XMSSState::Reset(size_t height) {
 
 MultiLayerXMSSSecretKey::MultiLayerXMSSSecretKey(size_t num_layers,
                                                  size_t layer_height)
-    : d(num_layers), h_prime(layer_height), counter(1), top_layer_index(0) {
+    : d(num_layers), h_prime(layer_height), counter(0), top_layer_index(0) {
     
     // MODIFIED: Added initialization of top_layer_index for 2-layer looping design
     
@@ -260,31 +268,43 @@ MultiXMSS_KeyGen(size_t num_layers, size_t layer_height) {
     for (size_t layer = 0; layer < num_layers; layer++) {
         // MODIFIED: Build 2 XMSS trees
         // Layer 0: Will be regenerated every 16 evaluations
-        // Layer 1: Static tree that never changes (we loop within it)
+        // Layer 1: Built to sign layer 0 root
         
-        // Generate XMSS tree for current layer using TreeHash algorithm
+        // For layer 0, build normally using WOTS public keys as leaves
+        // For layer > 0, build using WOTS signatures of previous layer's root
+        
         XMSSTree tree(layer_height, sk.xmss_bitmasks[layer]);
-        
-        // MODIFIED COMMENT: Each layer has 2^4 = 16 leaves
-        // Generate all 2^h_prime WOTS+ key pairs and process them
         PRGState layer_prg(sk.Scur[layer]);
         
-        for (size_t leaf_idx = 0; leaf_idx < (1UL << layer_height); leaf_idx++) {
-            // Generate WOTS+ key pair from seed
-            std::vector<uint8_t> key_seed = PRG_generate(layer_prg);
-            
-            auto [wots_sk, wots_pk] = WOTS_KeyGen(key_seed);
-            
-            // Apply L-Tree to get leaf
-            std::vector<std::vector<uint8_t>> wots_pk_components =
-                wots_pk.pk_components;
-            
-            std::vector<uint8_t> leaf = LTree(wots_pk_components,
-                                              sk.ltree_bitmasks[layer]);
-            
-            // Add to tree using TreeHash
-            XMSSTreeNode node(leaf, 0);
-            tree.TreeHash(node);
+        if (layer == 0) {
+            // Layer 0: Each leaf is L-Tree(WOTS_PK)
+            for (size_t leaf_idx = 0; leaf_idx < (1UL << layer_height); leaf_idx++) {
+                std::vector<uint8_t> key_seed = PRG_generate(layer_prg);
+                auto [wots_sk, wots_pk] = WOTS_KeyGen(key_seed);
+                std::vector<uint8_t> leaf = LTree(wots_pk.pk_components,
+                                                  sk.ltree_bitmasks[layer]);
+                XMSSTreeNode node(leaf, 0);
+                tree.TreeHash(node);
+            }
+        } else {
+            // Layer > 0: Each leaf is L-Tree(WOTS_Sign(previous_layer_root))
+            // We need the previous layer root to build this layer correctly
+            for (size_t leaf_idx = 0; leaf_idx < (1UL << layer_height); leaf_idx++) {
+                std::vector<uint8_t> key_seed = PRG_generate(layer_prg);
+                auto [wots_sk, wots_pk] = WOTS_KeyGen(key_seed);
+                
+                // Sign the previous layer root with this WOTS key
+                WOTSSignature sig = WOTS_Sign(wots_sk, layer_roots[layer - 1]);
+                
+                // Get the public key for the signature
+                // The signature already encodes the WOTS public key structure
+                // We reconstruct it to get the leaf value
+                WOTSPublicKey sig_pk = LTree_ReconstructPublicKeyFromSignatureStruct(sig, layer_roots[layer - 1]);
+                std::vector<uint8_t> leaf = LTree(sig_pk.pk_components, sk.ltree_bitmasks[layer]);
+                
+                XMSSTreeNode node(leaf, 0);
+                tree.TreeHash(node);
+            }
         }
         
         // Get root
@@ -442,11 +462,7 @@ MultiLayerXMSSProof MultiXMSS_Eval(MultiLayerXMSSSecretKey& sk,
         layer0_pos
     );
     
-    // Get the L-Tree output from layer 0 public key to pass to layer 1
-    std::vector<std::vector<uint8_t>> pk_components0 = wots_pk0.pk_components;
-    current_msg = LTree(pk_components0, sk.ltree_bitmasks[0]);
-    
-    // Also build tree for layer 0 to get root
+    // Build tree for layer 0 to get root (this is passed to layer 1 as the message)
     XMSSTree tree0(sk.h_prime, sk.xmss_bitmasks[0]);
     PRGState temp_prg(sk.Scur[0]);
     for (size_t leaf_idx = 0; leaf_idx < (1UL << sk.h_prime); leaf_idx++) {
@@ -456,6 +472,10 @@ MultiLayerXMSSProof MultiXMSS_Eval(MultiLayerXMSSSecretKey& sk,
         XMSSTreeNode leaf_node(leaf_value, 0);
         tree0.TreeHash(leaf_node);
     }
+    
+    // FIXED: Use the layer 0 tree root as the message for layer 1
+    // This is the correct hierarchical structure: layer 1 signs the root of layer 0
+    current_msg = tree0.GetRoot();
     
     // ========================================================================
     // LAYER 1 (TOP): Sign the layer 0 root using WRAPPING index
@@ -632,9 +652,31 @@ MultiLayerXMSSProof MultiXMSS_EvalWithIndices(MultiLayerXMSSSecretKey& sk,
             leaf_index
         );
         
-        // Get the L-Tree output from this layer's public key to pass to next layer
+        // Get the L-Tree output from this layer's public key
         std::vector<std::vector<uint8_t>> pk_components = wots_pk.pk_components;
-        current_msg = LTree(pk_components, sk.ltree_bitmasks[layer]);
+        std::vector<uint8_t> ltree_output = LTree(pk_components, sk.ltree_bitmasks[layer]);
+        
+        // CRITICAL: For layer > 0, reconstruct the FULL tree root from this leaf, not just L-Tree output
+        // This matches KeyGen behavior where Layer 1 was built to sign the full Layer 0 tree root
+        if (layer == 0 && sk.d > 1) {
+            // Reconstruct the full Layer 0 XMSS tree root
+            current_msg = reconstruct_xmss_root(
+                ltree_output,
+                proof.auth_paths[layer],
+                sk.xmss_bitmasks[layer],
+                leaf_index,
+                sk.h_prime
+            );
+        } else {
+            // For layer > 0, also reconstruct the tree root
+            current_msg = reconstruct_xmss_root(
+                ltree_output,
+                proof.auth_paths[layer],
+                sk.xmss_bitmasks[layer],
+                leaf_index,
+                sk.h_prime
+            );
+        }
     }
     
     return proof;

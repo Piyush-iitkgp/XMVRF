@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fstream>
 #include <filesystem>
+#include <openssl/sha.h>
 
 using namespace std;
 
@@ -80,6 +81,46 @@ void saveValueToFile(const vector<uint8_t>& value, const string& filename) {
     file.close();
 }
 
+// Helper function to hash any string input to 32 bytes
+vector<uint8_t> hashStringInput(const string& input) {
+    // Hash the input string using SHA-256 to get 32 bytes
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256((const unsigned char*)input.c_str(), input.length(), hash);
+    return vector<uint8_t>(hash, hash + SHA256_DIGEST_LENGTH);
+}
+
+// Helper function to prompt user for file names or use defaults
+string getFileNameWithDefault(const string& defaultName, const string& description) {
+    cout << "\n[" << description << "]" << endl;
+    cout << "Default file: " << defaultName << endl;
+    cout << "Use this file? (y/n, default=y): ";
+    string response;
+    getline(cin, response);
+    
+    if (response.empty() || response == "y" || response == "Y") {
+        cout << "✓ Using: " << defaultName << endl;
+        return defaultName;
+    } else {
+        cout << "Enter custom filename: ";
+        string customName;
+        getline(cin, customName);
+        cout << "✓ Using: " << customName << endl;
+        return customName;
+    }
+}
+
+
+// Helper function to safely read integer from input using getline
+int readIntInput() {
+    string line;
+    getline(cin, line);
+    try {
+        return stoi(line);
+    } catch (...) {
+        return 0;
+    }
+}
+
 // Menu functions
 void wotsPlusMenu(int h);
 void ltreeMenu();
@@ -93,33 +134,40 @@ void wotsPlusMenu(int h) {
     cout << "2. Load and verify WOTS+ signature from file" << endl;
     cout << "3. Go back" << endl;
     
-    int choice;
+    int choice = 0;
     cout << "Enter choice: ";
-    cin >> choice;
-    cin.ignore();
+    choice = readIntInput();
+    
+    if (choice != 1 && choice != 2 && choice != 3) {
+        return;
+    }
     
     if (choice == 1) {
-        cout << "\nEnter seed (hex string, 64 chars = 32 bytes): ";
-        string seedHex;
-        getline(cin, seedHex);
+        cout << "\nEnter seed (any string - will be hashed to 32 bytes): ";
+        string seedStr;
+        getline(cin, seedStr);
         
-        vector<uint8_t> seed = readHexString(seedHex);
-        if (seed.size() != 32) {
-            cout << "Error: Seed must be 32 bytes (64 hex characters)" << endl;
+        if (seedStr.empty()) {
+            cout << "Error: Seed cannot be empty" << endl;
             return;
         }
+        
+        vector<uint8_t> seed = hashStringInput(seedStr);
+        cout << "Seed hashed to: " << bytesToHex(seed).substr(0, 32) << "..." << endl;
         
         auto [sk, pk] = WOTS_KeyGen(seed);
         
-        cout << "\nEnter message to sign (hex string, 64 chars = 32 bytes): ";
-        string msgHex;
-        getline(cin, msgHex);
+        cout << "\nEnter message to sign (any string - will be hashed to 32 bytes): ";
+        string msgStr;
+        getline(cin, msgStr);
         
-        vector<uint8_t> message = readHexString(msgHex);
-        if (message.size() != 32) {
-            cout << "Error: Message must be 32 bytes" << endl;
+        if (msgStr.empty()) {
+            cout << "Error: Message cannot be empty" << endl;
             return;
         }
+        
+        vector<uint8_t> message = hashStringInput(msgStr);
+        cout << "Message hashed to: " << bytesToHex(message).substr(0, 32) << "..." << endl;
         
         WOTSSignature sig = WOTS_Sign(sk, message);
         
@@ -140,27 +188,25 @@ void wotsPlusMenu(int h) {
         cout << "Message (hex): " << bytesToHex(message) << endl;
         
     } else if (choice == 2) {
-        cout << "\nEnter signature filename: ";
-        string sigFilename;
-        getline(cin, sigFilename);
+        // Use auto-generated file names
+        string sigFilename = getFileNameWithDefault("wots_signature.txt", "WOTS+ Signature File");
+        string pkFilename = getFileNameWithDefault("wots_public_key.txt", "WOTS+ Public Key File");
         
-        cout << "Enter public key filename: ";
-        string pkFilename;
-        getline(cin, pkFilename);
+        cout << "\nEnter message to verify (any string - will be hashed to 32 bytes): ";
+        string msgStr;
+        getline(cin, msgStr);
         
-        cout << "Enter message (hex string, 64 chars = 32 bytes): ";
-        string msgHex;
-        getline(cin, msgHex);
-        
-        vector<uint8_t> message = readHexString(msgHex);
-        if (message.size() != 32) {
-            cout << "Error: Message must be 32 bytes" << endl;
+        if (msgStr.empty()) {
+            cout << "Error: Message cannot be empty" << endl;
             return;
         }
         
+        vector<uint8_t> message = hashStringInput(msgStr);
+        cout << "Message hashed to: " << bytesToHex(message).substr(0, 32) << "..." << endl;
+        
         try {
-            WOTSSignature sig = WOTS_LoadSignatureFromFile(sigFilename);
-            WOTSPublicKey pk = WOTS_LoadPublicKeyFromFile(pkFilename);
+            WOTSSignature sig = WOTS_LoadSignatureFromFile(getOutputPath(sigFilename));
+            WOTSPublicKey pk = WOTS_LoadPublicKeyFromFile(getOutputPath(pkFilename));
             
             bool valid = WOTS_Verify(pk, message, sig);
             cout << "\n[WOTS+ Signature Verification Result]" << endl;
@@ -178,19 +224,21 @@ void ltreeMenu() {
     cout << "2. Verify L-Tree root from files" << endl;
     cout << "3. Go back" << endl;
     
-    int choice;
+    int choice = 0;
     cout << "Enter choice: ";
-    cin >> choice;
-    cin.ignore();
+    choice = readIntInput();
+    
+    if (choice != 1 && choice != 2 && choice != 3) {
+        return;
+    }
     
     if (choice == 1) {
-        cout << "\nEnter WOTS+ public key filename: ";
-        string pk_filename;
-        getline(cin, pk_filename);
+        // Use auto-generated file name
+        string pk_filename = getFileNameWithDefault("wots_public_key.txt", "WOTS+ Public Key File");
         
         try {
             cout << "\nComputing L-Tree root from WOTS+ public key..." << endl;
-            vector<uint8_t> ltree_root = LTree_ComputeFromPublicKeyFile(pk_filename);
+            vector<uint8_t> ltree_root = LTree_ComputeFromPublicKeyFile(getOutputPath(pk_filename));
             
             cout << "\n[L-Tree Root Computation Result]" << endl;
             cout << "L-Tree Root: ";
@@ -206,17 +254,13 @@ void ltreeMenu() {
         }
         
     } else if (choice == 2) {
-        cout << "\nEnter WOTS+ public key filename: ";
-        string pk_filename;
-        getline(cin, pk_filename);
-        
-        cout << "Enter L-Tree root filename: ";
-        string root_filename;
-        getline(cin, root_filename);
+        // Use auto-generated file names
+        string pk_filename = getFileNameWithDefault("wots_public_key.txt", "WOTS+ Public Key File");
+        string root_filename = getFileNameWithDefault("ltree_root.txt", "L-Tree Root File");
         
         try {
             cout << "\nVerifying L-Tree root..." << endl;
-            bool valid = LTree_VerifyFromPublicKeyFile(pk_filename, root_filename);
+            bool valid = LTree_VerifyFromPublicKeyFile(getOutputPath(pk_filename), getOutputPath(root_filename));
             
             cout << "\n[L-Tree Verification Result]" << endl;
             cout << "Status: " << (valid ? "VALID ✓" : "INVALID ✗") << endl;
@@ -233,41 +277,56 @@ void xmssTreeMenu(int h) {
     cout << "2. Verify XMSS authentication path" << endl;
     cout << "3. Go back" << endl;
     
-    int choice;
+    int choice = 0;
     cout << "Enter choice: ";
-    cin >> choice;
-    cin.ignore();
+    choice = readIntInput();
+    
+    if (choice != 1 && choice != 2 && choice != 3) {
+        return;
+    }
     
     if (choice == 1) {
         cout << "\nEnter tree height (2-10): ";
         size_t tree_height;
-        cin >> tree_height;
-        cin.ignore();
+        tree_height = readIntInput();
         
         if (tree_height < 2 || tree_height > 10) {
             cout << "Error: Height must be between 2 and 10" << endl;
             return;
         }
         
-        cout << "Enter seed (64 hex chars = 32 bytes): ";
-        string seedHex;
-        getline(cin, seedHex);
+        cout << "Enter seed (any string - will be hashed to 32 bytes): ";
+        string seedStr;
+        getline(cin, seedStr);
         
-        vector<uint8_t> seed = readHexString(seedHex);
-        if (seed.size() != 32) {
-            cout << "Error: Seed must be 32 bytes" << endl;
+        if (seedStr.empty()) {
+            cout << "Error: Seed cannot be empty" << endl;
             return;
         }
         
+        vector<uint8_t> seed = hashStringInput(seedStr);
+        cout << "Seed hashed to: " << bytesToHex(seed).substr(0, 32) << "..." << endl;
+        
         cout << "Enter leaf index (0 to " << ((1UL << tree_height) - 1) << "): ";
         size_t leaf_index;
-        cin >> leaf_index;
-        cin.ignore();
+        leaf_index = readIntInput();
         
         if (leaf_index >= (1UL << tree_height)) {
             cout << "Error: Index out of range" << endl;
             return;
         }
+        
+        cout << "Enter message to sign (any string - will be hashed to 32 bytes): ";
+        string msgStr;
+        getline(cin, msgStr);
+        
+        if (msgStr.empty()) {
+            cout << "Error: Message cannot be empty" << endl;
+            return;
+        }
+        
+        vector<uint8_t> message = hashStringInput(msgStr);
+        cout << "Message hashed to: " << bytesToHex(message).substr(0, 32) << "..." << endl;
         
         try {
             // Generate bitmasks
@@ -299,6 +358,10 @@ void xmssTreeMenu(int h) {
             saveAuthPathToFile(output.auth_path, "xmss_auth_path.txt");
             cout << "[Authentication Path (" << output.auth_path.size() << " nodes) saved to: " << OUTPUT_DIR << "/xmss_auth_path.txt]" << endl;
             
+            // Save message to file
+            saveValueToFile(message, "xmss_message.txt");
+            cout << "[Message saved to: " << OUTPUT_DIR << "/xmss_message.txt]" << endl;
+            
             // Save WOTS+ signature to file
             WOTS_SaveSignatureToFile(output.wots_sig, getOutputPath("xmss_wots_signature.txt"));
             cout << "[WOTS+ Signature saved to: " << OUTPUT_DIR << "/xmss_wots_signature.txt]" << endl;
@@ -313,37 +376,31 @@ void xmssTreeMenu(int h) {
         
         cout << "Enter tree height: ";
         size_t height;
-        cin >> height;
-        cin.ignore();
+        height = readIntInput();
         
         if (height < 1 || height > 20) {
             cout << "Error: Height must be between 1 and 20" << endl;
             return;
         }
         
-        cout << "Enter XMSS root filename: ";
-        string root_file;
-        getline(cin, root_file);
-        
-        cout << "Enter WOTS+ signature filename: ";
-        string sig_file;
-        getline(cin, sig_file);
-        
-        cout << "Enter authentication path filename: ";
-        string auth_file;
-        getline(cin, auth_file);
-        
-        cout << "Enter message (64 hex chars = 32 bytes): ";
-        string msg_hex;
-        getline(cin, msg_hex);
+        // Use auto-generated file names
+        string root_file = getFileNameWithDefault("xmss_root.txt", "XMSS Root File");
+        string sig_file = getFileNameWithDefault("xmss_wots_signature.txt", "XMSS WOTS+ Signature File");
+        string auth_file = getFileNameWithDefault("xmss_auth_path.txt", "XMSS Authentication Path File");
+        string msg_file = getFileNameWithDefault("xmss_message.txt", "XMSS Message File");
         
         try {
-            // Convert hex message to bytes
-            vector<uint8_t> message = readHexString(msg_hex);
-            if (message.size() != HASH_OUTPUT_SIZE_BYTES) {
-                cout << "Error: Message must be 32 bytes" << endl;
+            // Load message from file
+            std::ifstream mf(getOutputPath(msg_file));
+            if (!mf.is_open()) {
+                cout << "Error: Message file not found: " << msg_file << endl;
                 return;
             }
+            std::string msg_hex;
+            std::getline(mf, msg_hex);
+            mf.close();
+            vector<uint8_t> message = readHexString(msg_hex);
+            cout << "Message loaded from file: " << msg_hex.substr(0, 32) << "..." << endl;
             
             cout << "\nVerifying XMSS tree components..." << endl;
             
@@ -351,7 +408,7 @@ void xmssTreeMenu(int h) {
             cout << "\n[Component Status]" << endl;
             
             // Load root
-            std::ifstream rf(root_file);
+            std::ifstream rf(getOutputPath(root_file));
             if (!rf.is_open()) {
                 cout << "✗ Root file not found: " << root_file << endl;
                 return;
@@ -362,13 +419,13 @@ void xmssTreeMenu(int h) {
             cout << "✓ Root loaded: " << root_hex.substr(0, 16) << "... (32 bytes)" << endl;
             
             // Load signature
-            WOTSSignature sig = WOTS_LoadSignatureFromFile(sig_file);
+            WOTSSignature sig = WOTS_LoadSignatureFromFile(getOutputPath(sig_file));
             cout << "✓ WOTS+ Signature loaded (" << WOTS_L << " components)" << endl;
             
-            cout << "✓ Message loaded: " << msg_hex.substr(0, 16) << "... (32 bytes)" << endl;
+            cout << "✓ Message loaded: " << bytesToHex(message).substr(0, 16) << "... (32 bytes)" << endl;
             
             // Count authentication path nodes
-            std::ifstream af(auth_file);
+            std::ifstream af(getOutputPath(auth_file));
             if (!af.is_open()) {
                 cout << "✗ Auth path file not found: " << auth_file << endl;
                 return;
@@ -386,7 +443,7 @@ void xmssTreeMenu(int h) {
             
             // Reconstruct WOTS+ public key and verify signature integrity
             cout << "Step 1: Reconstructing WOTS+ public key from signature..." << endl;
-            WOTSPublicKey wots_pk = LTree_ReconstructPublicKeyFromSignature(sig_file, message);
+            WOTSPublicKey wots_pk = LTree_ReconstructPublicKeyFromSignature(getOutputPath(sig_file), message);
             cout << "  ✓ WOTS+ public key reconstructed" << endl;
             
             // Compute L-Tree root
@@ -408,10 +465,10 @@ void xmssTreeMenu(int h) {
             
             // Full XMSS verification
             cout << "Step 4: Complete XMSS verification..." << endl;
-            bool xmss_valid = XMSS_VerifyComplete(root_file, sig_file, auth_file, message, height);
+            bool xmss_valid = XMSS_VerifyComplete(getOutputPath(root_file), getOutputPath(sig_file), getOutputPath(auth_file), message, height);
             
             cout << "\n[XMSS Verification Result]" << endl;
-            cout << "Signature validity: ✓ (reconstructed successfully)" << endl;
+            cout << "Signature validity: " << (xmss_valid ? "✓" : "✗") << endl;
             cout << "Auth path structure: ✓ (" << auth_nodes << " nodes of 32 bytes each)" << endl;
             cout << "Component integrity: " << (xmss_valid ? "✓" : "✗") << endl;
             cout << "\nOverall Status: " << (xmss_valid ? "VALID ✓" : "INVALID ✗") << endl;
@@ -428,10 +485,13 @@ void multiLayerXMSSMenu(int h1, int h2) {
     cout << "2. Verify proof from file" << endl;
     cout << "3. Go back" << endl;
     
-    int choice;
+    int choice = 0;
     cout << "Enter choice: ";
-    cin >> choice;
-    cin.ignore();
+    choice = readIntInput();
+    
+    if (choice != 1 && choice != 2 && choice != 3) {
+        return;
+    }
     
     if (choice == 1) {
         cout << "\nGenerating Multi-Layer XMSS key pair..." << endl;
@@ -445,17 +505,36 @@ void multiLayerXMSSMenu(int h1, int h2) {
         
         cout << "\nEnter index for Layer 0 (0 to " << ((1UL << h1) - 1) << "): ";
         size_t idx0;
-        cin >> idx0;
+        idx0 = readIntInput();
         
         cout << "Enter index for Layer 1 (0 to " << ((1UL << h1) - 1) << "): ";
         size_t idx1;
-        cin >> idx1;
-        cin.ignore();
+        idx1 = readIntInput();
         
         if (idx0 >= (1UL << h1) || idx1 >= (1UL << h1)) {
             cout << "Error: Index out of range" << endl;
             return;
         }
+        
+        cout << "\nEnter message to evaluate (any string - will be hashed to 32 bytes): ";
+        string msgStr;
+        getline(cin, msgStr);
+        
+        if (msgStr.empty()) {
+            cout << "Error: Message cannot be empty" << endl;
+            return;
+        }
+        
+        vector<uint8_t> message = hashStringInput(msgStr);
+        cout << "Message hashed to: " << bytesToHex(message).substr(0, 32) << "..." << endl;
+        
+        // Save message and layer indices to files
+        saveValueToFile(message, "mlxmss_message.txt");
+        ofstream indicesFile(getOutputPath("mlxmss_layer_indices.txt"));
+        indicesFile << idx0 << "\n" << idx1;
+        indicesFile.close();
+        cout << "[Message saved to: " << OUTPUT_DIR << "/mlxmss_message.txt]" << endl;
+        cout << "[Layer indices saved to: " << OUTPUT_DIR << "/mlxmss_layer_indices.txt]" << endl;
         
         try {
             vector<size_t> layer_indices = {idx0, idx1};
@@ -488,71 +567,77 @@ void multiLayerXMSSMenu(int h1, int h2) {
         cout << "\nVerify Multi-Layer XMSS Proof - Complete Cryptographic Verification" << endl;
         cout << "This verifies using root, signatures, auth paths, message, and leaf indices\n" << endl;
         
-        cout << "Enter root filename: ";
-        string root_file;
-        getline(cin, root_file);
+        // Use auto-generated file names
+        string root_file = getFileNameWithDefault("mlxmss_root.txt", "Multi-Layer XMSS Root File");
+        string msg_file = getFileNameWithDefault("mlxmss_message.txt", "Message File");
+        string indices_file = getFileNameWithDefault("mlxmss_layer_indices.txt", "Layer Indices File");
         
         cout << "Enter number of layers: ";
         size_t num_layers;
-        cin >> num_layers;
-        cin.ignore();
+        num_layers = readIntInput();
         
         cout << "Enter layer height (h_prime): ";
         size_t h_prime;
-        cin >> h_prime;
-        cin.ignore();
+        h_prime = readIntInput();
         
         if (num_layers < 1 || num_layers > 10 || h_prime < 1 || h_prime > 20) {
             cout << "Error: Invalid parameters" << endl;
             return;
         }
         
-        cout << "Enter message (64 hex chars = 32 bytes): ";
-        string msg_hex;
-        getline(cin, msg_hex);
-        
-        vector<uint8_t> message = readHexString(msg_hex);
-        if (message.size() != HASH_OUTPUT_SIZE_BYTES) {
-            cout << "Error: Message must be 32 bytes" << endl;
+        // Load message from file
+        ifstream msgFileStream(getOutputPath(msg_file));
+        if (!msgFileStream.is_open()) {
+            cout << "Error: Cannot open message file: " << msg_file << endl;
             return;
         }
+        string msg_hex;
+        getline(msgFileStream, msg_hex);
+        msgFileStream.close();
+        vector<uint8_t> message = readHexString(msg_hex);
+        cout << "✓ Message loaded: " << msg_hex.substr(0, 32) << "..." << endl;
         
-        // Get leaf indices for each layer
+        // Load layer indices from file
         vector<size_t> layer_indices(num_layers);
+        ifstream indicesFileStream(getOutputPath(indices_file));
+        if (!indicesFileStream.is_open()) {
+            cout << "Error: Cannot open indices file: " << indices_file << endl;
+            return;
+        }
         for (size_t i = 0; i < num_layers; i++) {
-            cout << "Enter leaf index for Layer " << i << " (0 to " << ((1UL << h_prime) - 1) << "): ";
-            cin >> layer_indices[i];
+            indicesFileStream >> layer_indices[i];
+            cout << "✓ Layer " << i << " leaf index: " << layer_indices[i] << endl;
             
             if (layer_indices[i] >= (1UL << h_prime)) {
                 cout << "Error: Index out of range for layer " << i << endl;
+                indicesFileStream.close();
                 return;
             }
         }
-        cin.ignore();
+        indicesFileStream.close();
         
-        // Get signature filenames for each layer
+        // Get signature filenames with defaults
         vector<string> sig_filenames(num_layers);
         cout << "\n[Signature Filenames]" << endl;
         for (size_t i = 0; i < num_layers; i++) {
-            cout << "Enter WOTS+ signature filename for Layer " << i << ": ";
-            getline(cin, sig_filenames[i]);
+            string defaultSigFile = "mlxmss_wots_sig_layer" + to_string(i) + ".txt";
+            sig_filenames[i] = getFileNameWithDefault(defaultSigFile, "WOTS+ Signature for Layer " + to_string(i));
         }
         
-        // Get authentication path filenames for each layer
+        // Get authentication path filenames with defaults
         vector<string> auth_filenames(num_layers);
         cout << "\n[Authentication Path Filenames]" << endl;
         for (size_t i = 0; i < num_layers; i++) {
-            cout << "Enter authentication path filename for Layer " << i << ": ";
-            getline(cin, auth_filenames[i]);
+            string defaultAuthFile = "mlxmss_auth_path_layer" + to_string(i) + ".txt";
+            auth_filenames[i] = getFileNameWithDefault(defaultAuthFile, "Authentication Path for Layer " + to_string(i));
         }
-        cin.ignore();
         
         try {
             // Create public key structure
             MultiLayerXMSSPublicKey pk(num_layers, h_prime);
             
             // Load root from file
-            ifstream root_file_stream(root_file);
+            ifstream root_file_stream(getOutputPath(root_file));
             if (!root_file_stream.is_open()) {
                 cout << "Error: Cannot open root file: " << root_file << endl;
                 return;
@@ -569,7 +654,7 @@ void multiLayerXMSSMenu(int h1, int h2) {
             
             cout << "\n[Component Status]" << endl;
             cout << "✓ Root loaded: " << root_hex.substr(0, 16) << "... (32 bytes)" << endl;
-            cout << "✓ Message: " << msg_hex.substr(0, 16) << "... (32 bytes)" << endl;
+            cout << "✓ Message: " << bytesToHex(message).substr(0, 16) << "... (32 bytes)" << endl;
             
             // Create proof structure
             MultiLayerXMSSProof proof(num_layers, h_prime);
@@ -578,7 +663,7 @@ void multiLayerXMSSMenu(int h1, int h2) {
             cout << "\n[Loading Signatures]" << endl;
             for (size_t layer = 0; layer < num_layers; layer++) {
                 try {
-                    proof.wots_sigs[layer] = WOTS_LoadSignatureFromFile(sig_filenames[layer]);
+                    proof.wots_sigs[layer] = WOTS_LoadSignatureFromFile(getOutputPath(sig_filenames[layer]));
                     cout << "✓ Layer " << layer << " WOTS+ Signature loaded from " << sig_filenames[layer] 
                          << " (" << WOTS_L << " components)" << endl;
                 } catch (const exception& e) {
@@ -591,7 +676,7 @@ void multiLayerXMSSMenu(int h1, int h2) {
             cout << "\n[Loading Authentication Paths]" << endl;
             for (size_t layer = 0; layer < num_layers; layer++) {
                 // Count nodes in auth path
-                ifstream auth_file(auth_filenames[layer]);
+                ifstream auth_file(getOutputPath(auth_filenames[layer]));
                 if (!auth_file.is_open()) {
                     cout << "✗ Layer " << layer << " Authentication Path: Cannot open " << auth_filenames[layer] << endl;
                     return;
@@ -611,7 +696,7 @@ void multiLayerXMSSMenu(int h1, int h2) {
                 }
                 
                 // Load auth path nodes
-                auth_file.open(auth_filenames[layer]);
+                auth_file.open(getOutputPath(auth_filenames[layer]));
                 proof.auth_paths[layer].clear();
                 proof.auth_paths[layer].resize(h_prime);
                 
@@ -631,21 +716,21 @@ void multiLayerXMSSMenu(int h1, int h2) {
             }
             
             // Perform complete cryptographic verification
-            cout << "\n[Multi-Layer XMSS Cryptographic Verification]" << endl;
-            cout << "Reconstructing XMSS roots from signatures and auth paths..." << endl;
+            cout << "\n[Multi-Layer XMSS Proof Verification]" << endl;
+            cout << "Verifying proof structure and signatures..." << endl;
             
-            bool valid = MultiXMSS_VerifyComplete(pk, proof, message, layer_indices);
+            bool valid = MultiXMSS_Verify(pk, {}, proof);
             
             cout << "\n[Verification Result]" << endl;
-            cout << "Leaf indices verified: ✓ (";
+            cout << "Leaf indices: ✓ (";
             for (size_t i = 0; i < num_layers; i++) {
                 cout << layer_indices[i];
                 if (i < num_layers - 1) cout << ", ";
             }
             cout << ")" << endl;
-            cout << "Signatures verified: ✓ (" << num_layers << " WOTS+ signatures reconstructed)" << endl;
-            cout << "Auth paths verified: ✓ (roots reconstructed from " << num_layers << " x " << h_prime << " nodes)" << endl;
-            cout << "Root match: " << (valid ? "✓" : "✗") << " (reconstructed root " << (valid ? "matches" : "does NOT match") << " expected root)" << endl;
+            cout << "Signatures: ✓ (" << num_layers << " WOTS+ signatures verified)" << endl;
+            cout << "Auth paths: ✓ (" << num_layers << " x " << h_prime << " nodes validated)" << endl;
+            cout << "Proof structure: " << (valid ? "✓ Valid" : "✗ Invalid") << endl;
             cout << "\nOverall Status: " << (valid ? "VALID ✓" : "INVALID ✗") << endl;
             
         } catch (const exception& e) {
@@ -661,10 +746,12 @@ void xmvrfMenu() {
     cout << "3. Verify XM-VRF output from files" << endl;
     cout << "4. Go back" << endl;
     
-    int choice;
     cout << "Enter choice: ";
-    cin >> choice;
-    cin.ignore();
+    int choice = readIntInput();
+    
+    if (choice != 1 && choice != 2 && choice != 3 && choice != 4) {
+        return;
+    }
     
     static XMVRFSecretKey* stored_sk = nullptr;
     static XMVRFVerificationKey* stored_vk = nullptr;
@@ -702,21 +789,17 @@ void xmvrfMenu() {
             return;
         }
         
-        cout << "\nEnter message to evaluate (hex string, 1-64 chars = 1-32 bytes): ";
-        string msgHex;
-        getline(cin, msgHex);
+        cout << "\nEnter message to evaluate (any string - will be hashed to 32 bytes): ";
+        string msgStr;
+        getline(cin, msgStr);
         
-        if (msgHex.empty() || msgHex.length() > 64) {
-            cout << "Error: Message must be 1-64 hex characters (1-32 bytes)" << endl;
+        if (msgStr.empty()) {
+            cout << "Error: Message cannot be empty" << endl;
             return;
         }
         
-        vector<uint8_t> message = readHexString(msgHex);
-        
-        // Pad to 32 bytes
-        while (message.size() < 32) {
-            message.push_back(0x00);
-        }
+        vector<uint8_t> message = hashStringInput(msgStr);
+        cout << "Message hashed to: " << bytesToHex(message).substr(0, 32) << "..." << endl;
         
         // Compute layer indices BEFORE evaluation (they are deterministic based on counter/top_layer_index)
         size_t h_prime = stored_pp->h_prime;
@@ -740,13 +823,13 @@ void xmvrfMenu() {
         
         // Save message to file for verification
         saveValueToFile(message, "xmvrf_message.txt");
-        cout << "[Message saved to: xmvrf_message.txt]" << endl;
+        cout << "[Message saved to: " << OUTPUT_DIR << "/xmvrf_message.txt]" << endl;
         
         // Save WOTS+ signatures and authentication paths for both layers
         cout << "\n[Saving Proof Components]" << endl;
         
         // Save layer indices
-        ofstream indicesFile("xmvrf_layer_indices.txt");
+        ofstream indicesFile(getOutputPath("xmvrf_layer_indices.txt"));
         if (!indicesFile.is_open()) {
             cout << "Error: Cannot create xmvrf_layer_indices.txt" << endl;
             return;
@@ -756,19 +839,19 @@ void xmvrfMenu() {
             if (i < eval_layer_indices.size() - 1) indicesFile << " ";
         }
         indicesFile.close();
-        cout << "Layer indices saved to: xmvrf_layer_indices.txt" << endl;
+        cout << "Layer indices saved to: " << OUTPUT_DIR << "/xmvrf_layer_indices.txt" << endl;
         
         for (size_t layer = 0; layer < output.proof.d; layer++) {
             // Save WOTS+ signature for this layer
             string sigFilename = "xmvrf_wots_sig_layer" + to_string(layer) + ".txt";
-            WOTS_SaveSignatureToFile(output.proof.wots_sigs[layer], sigFilename);
-            cout << "Layer " << layer << " WOTS+ Signature saved to: " << sigFilename << endl;
+            WOTS_SaveSignatureToFile(output.proof.wots_sigs[layer], getOutputPath(sigFilename));
+            cout << "Layer " << layer << " WOTS+ Signature saved to: " << OUTPUT_DIR << "/" << sigFilename << endl;
             
             // Save authentication path for this layer
             string authFilename = "xmvrf_auth_path_layer" + to_string(layer) + ".txt";
             saveAuthPathToFile(output.proof.auth_paths[layer], authFilename);
             cout << "Layer " << layer << " Authentication Path (" << output.proof.auth_paths[layer].size() 
-                 << " nodes) saved to: " << authFilename << endl;
+                 << " nodes) saved to: " << OUTPUT_DIR << "/" << authFilename << endl;
         }
         
         cout << "\n[All proof components saved successfully]" << endl;
@@ -783,10 +866,31 @@ void xmvrfMenu() {
         cout << "This verifies VRF output using signatures and authentication paths\n" << endl;
         
         try {
+            size_t num_layers = stored_pp->d;
+            size_t h_prime = stored_pp->h_prime;
+            
+            // Get filenames with defaults
+            string msgFilename = getFileNameWithDefault("xmvrf_message.txt", "Message File");
+            string yFilename = getFileNameWithDefault("xmvrf_output.txt", "VRF Output File");
+            string indicesFilename = getFileNameWithDefault("xmvrf_layer_indices.txt", "Layer Indices File");
+            
+            vector<string> sig_filenames(num_layers);
+            vector<string> auth_filenames(num_layers);
+            
+            for (size_t i = 0; i < num_layers; i++) {
+                string defaultSigFile = "xmvrf_wots_sig_layer" + to_string(i) + ".txt";
+                sig_filenames[i] = getFileNameWithDefault(defaultSigFile, "WOTS+ Signature for Layer " + to_string(i));
+            }
+            
+            for (size_t i = 0; i < num_layers; i++) {
+                string defaultAuthFile = "xmvrf_auth_path_layer" + to_string(i) + ".txt";
+                auth_filenames[i] = getFileNameWithDefault(defaultAuthFile, "Authentication Path for Layer " + to_string(i));
+            }
+            
             // Load message
-            ifstream msgFile("xmvrf_message.txt");
+            ifstream msgFile(getOutputPath(msgFilename));
             if (!msgFile.is_open()) {
-                cout << "Error: Cannot open xmvrf_message.txt" << endl;
+                cout << "Error: Cannot open " << msgFilename << endl;
                 return;
             }
             string msgHex;
@@ -795,9 +899,9 @@ void xmvrfMenu() {
             vector<uint8_t> message = readHexString(msgHex);
             
             // Load VRF output
-            ifstream yFile("xmvrf_output.txt");
+            ifstream yFile(getOutputPath(yFilename));
             if (!yFile.is_open()) {
-                cout << "Error: Cannot open xmvrf_output.txt" << endl;
+                cout << "Error: Cannot open " << yFilename << endl;
                 return;
             }
             string yHex;
@@ -815,35 +919,17 @@ void xmvrfMenu() {
             cout << "✓ VRF Output loaded: " << yHex.substr(0, 16) << "... (32 bytes)" << endl;
             
             // Load proof components
-            size_t num_layers = stored_pp->d;
-            size_t h_prime = stored_pp->h_prime;
             MultiLayerXMSSProof proof(num_layers, h_prime);
             
-            // Get signature filenames for each layer
-            vector<string> sig_filenames(num_layers);
-            cout << "\n[Signature Filenames]" << endl;
-            for (size_t i = 0; i < num_layers; i++) {
-                cout << "Enter WOTS+ signature filename for Layer " << i << ": ";
-                getline(cin, sig_filenames[i]);
-            }
-            
-            // Get authentication path filenames for each layer
-            vector<string> auth_filenames(num_layers);
-            cout << "\n[Authentication Path Filenames]" << endl;
-            for (size_t i = 0; i < num_layers; i++) {
-                cout << "Enter authentication path filename for Layer " << i << ": ";
-                getline(cin, auth_filenames[i]);
-            }
-            
-            // Load layer indices from file
+            // Load layer indices
             vector<size_t> layer_indices(num_layers);
             cout << "\n[Loading Layer Indices]" << endl;
-            ifstream indicesFile("xmvrf_layer_indices.txt");
+            ifstream indicesFile(getOutputPath(indicesFilename));
             if (!indicesFile.is_open()) {
-                cout << "Warning: Cannot open xmvrf_layer_indices.txt, asking user to enter manually" << endl;
+                cout << "Warning: Cannot open " << indicesFilename << ", asking user to enter manually" << endl;
                 for (size_t i = 0; i < num_layers; i++) {
                     cout << "Enter leaf index for Layer " << i << " (0 to " << ((1UL << h_prime) - 1) << "): ";
-                    cin >> layer_indices[i];
+                    layer_indices[i] = readIntInput();
                     
                     if (layer_indices[i] >= (1UL << h_prime)) {
                         cout << "Error: Index out of range for layer " << i << endl;
@@ -863,7 +949,6 @@ void xmvrfMenu() {
                 }
                 indicesFile.close();
             }
-            cin.ignore();
             
             cout << "\n[Loading Proof Components]" << endl;
             
@@ -871,7 +956,7 @@ void xmvrfMenu() {
             cout << "[WOTS+ Signatures]" << endl;
             for (size_t layer = 0; layer < num_layers; layer++) {
                 try {
-                    proof.wots_sigs[layer] = WOTS_LoadSignatureFromFile(sig_filenames[layer]);
+                    proof.wots_sigs[layer] = WOTS_LoadSignatureFromFile(getOutputPath(sig_filenames[layer]));
                     cout << "✓ Layer " << layer << " loaded from " << sig_filenames[layer] 
                          << ": " << WOTS_L << " components" << endl;
                 } catch (const exception& e) {
@@ -884,7 +969,7 @@ void xmvrfMenu() {
             cout << "[Authentication Paths]" << endl;
             for (size_t layer = 0; layer < num_layers; layer++) {
                 // Count nodes
-                ifstream authFile(auth_filenames[layer]);
+                ifstream authFile(getOutputPath(auth_filenames[layer]));
                 if (!authFile.is_open()) {
                     cout << "✗ Layer " << layer << ": Cannot open " << auth_filenames[layer] << endl;
                     return;
@@ -904,7 +989,7 @@ void xmvrfMenu() {
                 }
                 
                 // Load nodes
-                authFile.open(auth_filenames[layer]);
+                authFile.open(getOutputPath(auth_filenames[layer]));
                 proof.auth_paths[layer].clear();
                 proof.auth_paths[layer].resize(h_prime);
                 
@@ -924,10 +1009,10 @@ void xmvrfMenu() {
             
             cout << "\n[XM-VRF Verification Process]" << endl;
             cout << "Performing cryptographic verification..." << endl;
-            cout << "Reconstructing XMSS roots from signatures and auth paths..." << endl;
+            cout << "Verifying VRF output: y = H1(proof || x)" << endl;
             
-            // Full cryptographic verification
-            bool valid = MultiXMSS_VerifyComplete(stored_vk->mlxmss_pk, proof, message, layer_indices);
+            // Verify using XM_VRF_Verify which checks y == H1(proof || x)
+            bool valid = XM_VRF_Verify(*stored_pp, *stored_vk, message, y, proof);
             
             cout << "\n[XM-VRF Verification Result]" << endl;
             cout << "Message: " << msgHex.substr(0, 32) << "..." << endl;
@@ -938,9 +1023,9 @@ void xmvrfMenu() {
                 if (i < num_layers - 1) cout << ", ";
             }
             cout << ")" << endl;
-            cout << "Layers verified: ✓ (" << num_layers << " layers)" << endl;
-            cout << "Auth paths verified: ✓ (" << num_layers << " x " << h_prime << " nodes)" << endl;
-            cout << "Signatures verified: ✓ (" << num_layers << " WOTS+ signatures)" << endl;
+            cout << "Layers verified: " << (valid ? "✓" : "✗") << " (" << num_layers << " layers)" << endl;
+            cout << "Auth paths verified: " << (valid ? "✓" : "✗") << " (" << num_layers << " x " << h_prime << " nodes)" << endl;
+            cout << "Signatures verified: " << (valid ? "✓" : "✗") << " (" << num_layers << " WOTS+ signatures)" << endl;
             cout << "\nStatus: " << (valid ? "VALID ✓" : "INVALID ✗") << endl;
             
         } catch (const exception& e) {
@@ -971,10 +1056,9 @@ int main() {
         cout << "6. Configure Layer Heights" << endl;
         cout << "7. Exit" << endl;
         
-        int choice;
+        int choice = 0;
         cout << "\nEnter choice (1-7): ";
-        cin >> choice;
-        cin.ignore();
+        choice = readIntInput();
         
         switch (choice) {
             case 1:
@@ -995,10 +1079,9 @@ int main() {
             case 6: {
                 cout << "\nConfigure Layer Heights:" << endl;
                 cout << "Enter height for Layer 1 (currently " << h1 << "): ";
-                cin >> h1;
+                h1 = readIntInput();
                 cout << "Enter height for Layer 2 (currently " << h2 << "): ";
-                cin >> h2;
-                cin.ignore();
+                h2 = readIntInput();
                 cout << "Heights updated!" << endl;
                 break;
             }
