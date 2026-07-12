@@ -1,0 +1,17 @@
+XM-VRF is a post-quantum verifiable random function implementation based on hash-based cryptography.
+
+The project is organized in layers: crypto utilities, WOTS+, L-Tree, XMSS trees, multi-layer XMSS, and the final XM-VRF system. It includes an interactive C++ test program that can generate keys, create signatures and proofs, and verify results from saved files.
+
+How to use it:
+
+1. Run the program from the project root with ./build/bin/xmvrf.
+2. The program starts with a main menu that lets you test WOTS+, L-Tree, XMSS, multi-layer XMSS, or the full XM-VRF flow.
+3. When you choose a menu option, the program asks for inputs such as a seed, message, tree height, leaf index, or file names. Text inputs are hashed to 32 bytes before use, so you can type normal strings.
+4. For the WOTS+ option, the program generates a signature for the message, saves the signature and public key to output_files/, and then verifies the signature immediately.
+5. For the L-Tree option, it loads a saved WOTS+ public key file and computes the L-Tree root, then saves that root for later verification.
+6. For the XMSS option, it builds a tree for the height and leaf index you enter, prints the root, and saves the root, authentication path, message, and WOTS+ signature to output_files/.
+7. For the multi-layer XMSS option, it generates layer-specific signatures and authentication paths, saves them to files, and later reloads them for verification.
+8. For the XM-VRF option, it generates a key pair, evaluates the VRF on your message, saves the VRF output and proof files, and can verify the saved result using the stored components.
+9. The saved files are meant to be reused by the verification menus, so you can generate data in one run and validate it in another.
+
+The code builds with CMake, uses C++17, and depends on OpenSSL for hashing.
